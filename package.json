@@ -1,7 +1,7 @@
 {
   "name": "maplibre-font-pbf",
   "version": "0.1.0",
-  "description": "Generate MapLibre-compatible glyph PBF files in memory from TTF font bytes.",
+  "description": "Generate MapLibre-compatible glyph PBF files in memory from TTF, OTF, WOFF, or WOFF2 font bytes.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -20,13 +20,19 @@
     "node": ">=18"
   },
   "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "prebuild": "npm run clean",
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
     "@types/node": "^24.0.8",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "@web-alchemy/fonttools": "^1.4.0"
   }
 }

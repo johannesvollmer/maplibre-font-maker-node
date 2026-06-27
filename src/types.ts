@@ -1,6 +1,7 @@
 export interface FontInput {
   name: string;
   bytes: Uint8Array;
+  settings?: FontVariationSettings;
 }
 
 export interface GlyphRange {
@@ -18,3 +19,5 @@ export interface GenerateGlyphPbfFilesOptions {
   fonts: FontInput[];
   ranges: GlyphRange[];
 }
+
+export type FontVariationSettings = Record<string, number>;

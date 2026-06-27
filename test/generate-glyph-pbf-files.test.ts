@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 
@@ -11,7 +12,11 @@ import {
   range256,
 } from '../src/index.js';
 
+const require = createRequire(import.meta.url);
 const fixturesUrl = new URL('./fixtures/', import.meta.url);
+const fonttools = require('@web-alchemy/fonttools') as {
+  subset(inputFontBuffer: Uint8Array, options: Record<string, string | boolean>): Promise<Uint8Array>;
+};
 
 describe('range helpers', () => {
   it('creates aligned MapLibre glyph ranges', () => {
@@ -65,6 +70,58 @@ describe('generateGlyphPbfFiles', () => {
     }
   });
 
+  it('automatically normalizes WOFF and WOFF2 font bytes before generation', async () => {
+    const ttfBytes = new Uint8Array(await readFile(new URL('Barlow-Regular.ttf', fixturesUrl)));
+    const [woffBytes, woff2Bytes] = await Promise.all([
+      fonttools.subset(ttfBytes, { '*': true, flavor: 'woff' }),
+      fonttools.subset(ttfBytes, { '*': true, flavor: 'woff2' }),
+    ]);
+
+    expect(getSignature(woffBytes)).toBe('wOFF');
+    expect(getSignature(woff2Bytes)).toBe('wOF2');
+
+    const [woffFiles, woff2Files] = await Promise.all([
+      generateGlyphPbfFiles({
+        fontstack: 'Barlow Regular',
+        fonts: [{ name: 'Barlow Regular', bytes: new Uint8Array(woffBytes) }],
+        ranges: [range256(0)],
+      }),
+      generateGlyphPbfFiles({
+        fontstack: 'Barlow Regular',
+        fonts: [{ name: 'Barlow Regular', bytes: new Uint8Array(woff2Bytes) }],
+        ranges: [range256(0)],
+      }),
+    ]);
+
+    const expected = await readFile(new URL('expected/0-255.pbf', fixturesUrl));
+    expect(Buffer.compare(Buffer.from(woffFiles[0]!.bytes), expected)).toBe(0);
+    expect(Buffer.compare(Buffer.from(woff2Files[0]!.bytes), expected)).toBe(0);
+  });
+
+  it('applies per-font variation settings while normalizing WOFF2 input', async () => {
+    const interWoff2Path = require.resolve('@fontsource-variable/inter/files/inter-latin-wght-normal.woff2');
+    const interWoff2 = new Uint8Array(await readFile(interWoff2Path));
+
+    expect(getSignature(interWoff2)).toBe('wOF2');
+
+    const [regularFiles, boldFiles] = await Promise.all([
+      generateGlyphPbfFiles({
+        fontstack: 'Inter Regular',
+        fonts: [{ name: 'Inter Regular', bytes: interWoff2, settings: { wght: 400 } }],
+        ranges: [range256(0)],
+      }),
+      generateGlyphPbfFiles({
+        fontstack: 'Inter Bold',
+        fonts: [{ name: 'Inter Bold', bytes: interWoff2, settings: { wght: 700 } }],
+        ranges: [range256(0)],
+      }),
+    ]);
+
+    expect(regularFiles[0]!.bytes.byteLength).toBeGreaterThan(0);
+    expect(boldFiles[0]!.bytes.byteLength).toBeGreaterThan(0);
+    expect(Buffer.compare(Buffer.from(regularFiles[0]!.bytes), Buffer.from(boldFiles[0]!.bytes))).not.toBe(0);
+  });
+
   it('rejects invalid inputs before entering WASM generation', async () => {
     const fontBytes = new Uint8Array(await readFile(new URL('Barlow-Regular.ttf', fixturesUrl)));
     const validOptions = {
@@ -84,7 +141,13 @@ describe('generateGlyphPbfFiles', () => {
         ...validOptions,
         fonts: [{ name: 'not a font', bytes: new Uint8Array([1, 2, 3, 4]) }],
       }),
-    ).rejects.toThrow('not a supported TTF or OTF font');
+    ).rejects.toThrow('not a supported TTF, OTF, WOFF, or WOFF2 font');
+    await expect(
+      generateGlyphPbfFiles({
+        ...validOptions,
+        fonts: [{ name: 'bad settings', bytes: fontBytes, settings: { weight: 400 } }],
+      }),
+    ).rejects.toThrow('Invalid variation axis tag');
     await expect(
       generateGlyphPbfFiles({ ...validOptions, ranges: [{ start: 0, end: 254 }] }),
     ).rejects.toThrow('must be a 256-codepoint range');
@@ -93,3 +156,7 @@ describe('generateGlyphPbfFiles', () => {
     ).rejects.toThrow('Duplicate glyph range');
   });
 });
+
+function getSignature(bytes: Uint8Array): string {
+  return String.fromCharCode(bytes[0]!, bytes[1]!, bytes[2]!, bytes[3]!);
+}

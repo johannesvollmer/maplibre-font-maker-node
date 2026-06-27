@@ -1,6 +1,6 @@
 # maplibre-font-pbf
 
-A TypeScript library for generating MapLibre-compatible glyph PBF files in memory from TTF or OTF font bytes. It is a thin Node.js wrapper around the MapLibre `font-maker` WASM implementation.
+A TypeScript library for generating MapLibre-compatible glyph PBF files in memory from TTF, OTF, WOFF, or WOFF2 font bytes. WOFF and WOFF2 inputs are detected from their first four magic bytes and normalized internally before glyph generation.
 
 ## Usage
 
@@ -43,6 +43,26 @@ allBmpRanges()
 ```
 
 `basicLatinRanges()` returns the `0-255` MapLibre glyph range. `latinRanges()` returns `0-255`, `256-511`, and `512-767`. `allBmpRanges()` returns all 256 ranges covering the BMP.
+
+## Web Fonts And Variable Settings
+
+```ts
+const files = await generateGlyphPbfFiles({
+  fontstack: 'Inter Bold',
+  fonts: [
+    {
+      name: 'Inter Bold',
+      bytes: woff2Bytes,
+      settings: {
+        wght: 700,
+      },
+    },
+  ],
+  ranges: latinRanges(),
+});
+```
+
+`fonts[].settings` is optional. When present, each key must be a 4-character OpenType variation-axis tag and each value must be the fixed numeric axis value to instantiate. Unspecified axes are pinned to the font's default values when a variable font is normalized. WOFF inputs start with `77 4F 46 46` (`wOFF`), and WOFF2 inputs start with `77 4F 46 32` (`wOF2`).
 
 ## Vendored runtime
 

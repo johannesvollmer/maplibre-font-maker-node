@@ -1,3 +1,8 @@
+import {
+  isSupportedFontInput,
+  normalizeFontInput,
+  validateFontVariationSettings,
+} from './font-normalization.js';
 import { range256 } from './ranges.js';
 import type {
   FontInput,
@@ -15,6 +20,7 @@ export async function generateGlyphPbfFiles(
   const fontstack = validateFontstack(options?.fontstack);
   const fonts = validateFonts(options?.fonts);
   const ranges = validateRanges(options?.ranges);
+  const normalizedFonts = await normalizeFonts(fonts);
   const module = await initializeWasm();
 
   let fontstackPtr: Pointer | undefined;
@@ -27,7 +33,7 @@ export async function generateGlyphPbfFiles(
       throw new Error('font-maker WASM returned a null fontstack pointer.');
     }
 
-    for (const font of fonts) {
+    for (const font of normalizedFonts) {
       const dataPtr = allocateBytes(module, font.bytes);
       fontDataPtrs.push(dataPtr);
       addFace(module, fontstackPtr, font, dataPtr);
@@ -138,14 +144,23 @@ function validateFont(font: unknown, index: number): FontInput {
     throw new TypeError(`fonts[${index}].bytes must be a Uint8Array.`);
   }
 
-  if (!hasSupportedSfntSignature(candidate.bytes)) {
-    throw new TypeError(`fonts[${index}].bytes is not a supported TTF or OTF font.`);
+  if (!isSupportedFontInput(candidate.bytes)) {
+    throw new TypeError(`fonts[${index}].bytes is not a supported TTF, OTF, WOFF, or WOFF2 font.`);
   }
 
   return {
     name: candidate.name,
     bytes: candidate.bytes,
+    settings: validateFontVariationSettings(candidate.settings, `fonts[${index}].settings`),
   };
+}
+
+async function normalizeFonts(fonts: FontInput[]): Promise<FontInput[]> {
+  try {
+    return await Promise.all(fonts.map((font) => normalizeFontInput(font)));
+  } catch (error) {
+    throw new Error(`Failed to normalize font input: ${formatError(error)}`);
+  }
 }
 
 function validateRanges(ranges: unknown): GlyphRange[] {
@@ -183,19 +198,6 @@ function validateRange(range: unknown, index: number): GlyphRange {
   }
 
   return expected;
-}
-
-function hasSupportedSfntSignature(bytes: Uint8Array): boolean {
-  if (bytes.byteLength < 4) {
-    return false;
-  }
-
-  if (bytes[0] === 0x00 && bytes[1] === 0x01 && bytes[2] === 0x00 && bytes[3] === 0x00) {
-    return true;
-  }
-
-  const signature = String.fromCharCode(bytes[0]!, bytes[1]!, bytes[2]!, bytes[3]!);
-  return signature === 'OTTO' || signature === 'true' || signature === 'typ1' || signature === 'ttcf';
 }
 
 function formatRange(range: GlyphRange): string {
