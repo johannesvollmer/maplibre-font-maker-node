@@ -1,0 +1,13 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate-fonts": "node ./generate-fonts.mjs",
+    "predev": "npm run generate-fonts",
+    "dev": "vite --host 127.0.0.1"
+  },
+  "devDependencies": {
+    "maplibre-gl": "^5.24.0",
+    "vite": "^6.4.1"
+  }
+}
