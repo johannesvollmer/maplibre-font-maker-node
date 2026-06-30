@@ -24,7 +24,8 @@
     "prebuild": "npm run clean",
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublish": "npm run build"
   },
   "devDependencies": {
     "@types/node": "^24.0.8",
