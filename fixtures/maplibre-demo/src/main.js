@@ -2,13 +2,16 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import maplibregl from 'maplibre-gl';
 import './styles.css';
 
+const glyphsPatSchema = '/fonts/{fontstack}/{range}.pbf';
+const fontName = 'Roboto Flex Heading 1';
+
 const map = new maplibregl.Map({
   container: 'map',
   center: [13.405, 52.52],
   zoom: 10,
   style: {
     version: 8,
-    glyphs: '/fonts/{fontstack}/{range}.pbf',
+    glyphs: glyphsPatSchema,
     sources: {
       osm: {
         type: 'raster',
@@ -24,7 +27,7 @@ const map = new maplibregl.Map({
             {
               type: 'Feature',
               properties: {
-                title: 'Roboto Flex Heading 1',
+                title: 'Sample Text With Custom Font',
               },
               geometry: {
                 type: 'Point',
@@ -47,7 +50,7 @@ const map = new maplibregl.Map({
         source: 'demoLabel',
         layout: {
           'text-field': ['get', 'title'],
-          'text-font': ['Roboto Flex Heading 1'],
+          'text-font': [fontName],
           'text-size': 28,
           'text-anchor': 'center',
           'text-allow-overlap': true,
